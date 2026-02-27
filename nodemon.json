@@ -1,0 +1,9 @@
+{
+  "ignore": [
+    "settings.db",
+    "settings.db-journal",
+    "node_modules/*",
+    "public/*"
+  ],
+  "ext": "js,json,html,css"
+}

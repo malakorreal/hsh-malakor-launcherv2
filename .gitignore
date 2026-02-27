@@ -1,0 +1,6 @@
+node_modules
+userData
+settings.db
+settings.db-journal
+.DS_Store
+Thumbs.db

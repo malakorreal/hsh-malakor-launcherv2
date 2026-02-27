@@ -1,0 +1,24 @@
+{
+  "name": "malakorproxy",
+  "version": "1.0.0",
+  "description": "Game Launcher for HSHO",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "nodemon --exec electron ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "open": "^8.4.2",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "electron": "^40.6.1",
+    "nodemon": "^3.1.14"
+  }
+}

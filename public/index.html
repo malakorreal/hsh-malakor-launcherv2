@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malakor Game Launcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Malakor Launcher</h1>
+        
+        <!-- Setup Section -->
+        <div id="setup-section" class="section hidden">
+            <h2>Initial Setup</h2>
+            <p>Please select the game executable (HSHO.exe) to begin.</p>
+            <div class="form-group">
+                <label for="gamePath">Game Executable Path:</label>
+                <div class="file-select-container">
+                    <button type="button" id="select-game-btn" class="secondary-btn">Select HSHO.exe</button>
+                    <input type="file" id="gamePathFile" accept=".exe" style="display: none;">
+                    <div id="selected-path-display" class="path-display">No file selected</div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="serverAddress">Domain Server (Optional):</label>
+                <input type="text" id="serverAddress" placeholder="game.example.com">
+            </div>
+            <button id="save-config-btn">Save Configuration</button>
+        </div>
+
+        <!-- Install Section -->
+        <div id="install-section" class="section hidden">
+            <h2>Installation Required</h2>
+            <p>The game needs to be installed/patched before playing.</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <button id="install-btn">Auto Install</button>
+        </div>
+
+        <!-- Launcher Section -->
+        <div id="launcher-section" class="section hidden">
+            <div class="status-bar">
+                Status: <span id="status-text">Ready</span>
+            </div>
+            
+            <div class="controls">
+                <button id="play-btn" class="primary-btn">PLAY</button>
+                <button id="stop-btn" class="danger-btn hidden">STOP GAME</button>
+            </div>
+
+            <div class="settings-link">
+                <a href="#" id="change-settings">Settings</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

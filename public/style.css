@@ -1,0 +1,169 @@
+body {
+    font-family: 'Kanit', sans-serif;
+    background-color: #121212;
+    color: #e0e0e0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.container {
+    background-color: #1e1e1e;
+    padding: 2.5rem;
+    border-radius: 12px;
+    /* No box-shadow as requested */
+    border: 1px solid #333;
+    width: 450px;
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 2rem;
+    color: #4CAF50;
+    font-weight: 500;
+    font-size: 2rem;
+}
+
+h2 {
+    font-weight: 400;
+    color: #fff;
+    margin-bottom: 1.5rem;
+}
+
+.section {
+    margin-bottom: 1rem;
+}
+
+.hidden {
+    display: none;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.8rem;
+    color: #aaa;
+    font-size: 0.95rem;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: #2d2d2d;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 6px;
+    font-family: 'Kanit', sans-serif;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input[type="text"]:focus {
+    border-color: #4CAF50;
+}
+
+/* File Select Styles */
+.file-select-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.path-display {
+    font-size: 0.85rem;
+    color: #888;
+    background-color: #252525;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px dashed #444;
+    word-break: break-all;
+}
+
+button {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-family: 'Kanit', sans-serif;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    width: 100%;
+    margin-bottom: 0.5rem;
+    font-weight: 400;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+.primary-btn, #install-btn, #save-config-btn {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.primary-btn:hover, #install-btn:hover, #save-config-btn:hover {
+    background-color: #43a047;
+}
+
+.secondary-btn {
+    background-color: #3d3d3d;
+    color: white;
+    border: 1px solid #555;
+}
+
+.secondary-btn:hover {
+    background-color: #4d4d4d;
+}
+
+.danger-btn {
+    background-color: #e53935;
+    color: white;
+}
+
+.danger-btn:hover {
+    background-color: #d32f2f;
+}
+
+.progress-bar {
+    width: 100%;
+    background-color: #2d2d2d;
+    height: 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #4CAF50;
+    width: 0%;
+    transition: width 0.5s;
+}
+
+.status-bar {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+    color: #bbb;
+}
+
+.settings-link {
+    margin-top: 1.5rem;
+}
+
+.settings-link a {
+    color: #666;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.settings-link a:hover {
+    color: #999;
+}

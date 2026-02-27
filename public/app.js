@@ -1,0 +1,209 @@
+document.addEventListener('DOMContentLoaded', () => {
+    const setupSection = document.getElementById('setup-section');
+    const installSection = document.getElementById('install-section');
+    const launcherSection = document.getElementById('launcher-section');
+    
+    // Updated Elements for File Selection
+    const selectGameBtn = document.getElementById('select-game-btn');
+    const gamePathFile = document.getElementById('gamePathFile');
+    const selectedPathDisplay = document.getElementById('selected-path-display');
+    
+    const serverAddressInput = document.getElementById('serverAddress');
+    const saveConfigBtn = document.getElementById('save-config-btn');
+    
+    const installBtn = document.getElementById('install-btn');
+    const progressFill = document.getElementById('progress-fill');
+    
+    const playBtn = document.getElementById('play-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const statusText = document.getElementById('status-text');
+    const changeSettingsLink = document.getElementById('change-settings');
+
+    let currentStatus = {
+        gamePath: '',
+        serverAddress: '',
+        isInstalled: false,
+        isRunning: false
+    };
+
+    let pendingGamePath = '';
+
+    // Poll status every 2 seconds
+    setInterval(fetchStatus, 2000);
+    fetchStatus();
+
+    async function fetchStatus() {
+        try {
+            const res = await fetch('/api/status');
+            const data = await res.json();
+            currentStatus = data;
+            updateUI();
+        } catch (err) {
+            console.error('Failed to fetch status:', err);
+            statusText.textContent = 'Connection Error';
+        }
+    }
+
+    function updateUI() {
+        // Decide which section to show
+        if (!currentStatus.gamePath) {
+            showSection(setupSection);
+            // If we have a pending path selected by user, don't overwrite it.
+            // If no pending path and no current status path, it stays default.
+        } else if (!currentStatus.isInstalled) {
+            showSection(installSection);
+        } else {
+            showSection(launcherSection);
+            
+            // Update Launcher Status
+            if (currentStatus.isRunning) {
+                statusText.textContent = 'Game Running';
+                statusText.style.color = '#4CAF50';
+                playBtn.classList.add('hidden');
+                stopBtn.classList.remove('hidden');
+            } else {
+                statusText.textContent = 'Ready to Play';
+                statusText.style.color = '#bbb';
+                playBtn.classList.remove('hidden');
+                stopBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    function showSection(section) {
+        // Hide all
+        setupSection.classList.add('hidden');
+        installSection.classList.add('hidden');
+        launcherSection.classList.add('hidden');
+        
+        // Show target
+        section.classList.remove('hidden');
+    }
+
+    // File Selection Logic
+    selectGameBtn.addEventListener('click', () => {
+        gamePathFile.click();
+    });
+
+    gamePathFile.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            const file = e.target.files[0];
+            // In Electron with nodeIntegration: true, the File object has a 'path' property containing the absolute path.
+            if (file.path) {
+                pendingGamePath = file.path;
+                selectedPathDisplay.textContent = pendingGamePath;
+                selectedPathDisplay.style.color = '#fff';
+            } else {
+                // Fallback for browser testing (mock path)
+                pendingGamePath = file.name;
+                selectedPathDisplay.textContent = file.name;
+            }
+        }
+    });
+
+    // Save Configuration
+    saveConfigBtn.addEventListener('click', async () => {
+        const gamePath = pendingGamePath;
+        const serverAddress = serverAddressInput.value.trim();
+        
+        if (!gamePath) {
+            alert('Please select the game executable (HSHO.exe).');
+            return;
+        }
+
+        try {
+            await fetch('/api/configure', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gamePath, serverAddress })
+            });
+            fetchStatus(); // Refresh
+        } catch (err) {
+            alert('Failed to save configuration.');
+        }
+    });
+
+    // Auto Install
+    installBtn.addEventListener('click', async () => {
+        installBtn.disabled = true;
+        installBtn.textContent = 'Installing...';
+        progressFill.style.width = '0%';
+        
+        // Simulate progress bar locally for UX
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 5;
+            if (progress > 90) clearInterval(interval);
+            progressFill.style.width = `${progress}%`;
+        }, 100);
+
+        try {
+            await fetch('/api/install', { method: 'POST' });
+            progressFill.style.width = '100%';
+            setTimeout(() => {
+                fetchStatus();
+            }, 500);
+        } catch (err) {
+            alert('Installation failed.');
+            installBtn.disabled = false;
+            installBtn.textContent = 'Auto Install';
+        }
+    });
+
+    // Launch Game
+    playBtn.addEventListener('click', async () => {
+        playBtn.disabled = true;
+        playBtn.textContent = 'Launching...';
+        
+        try {
+            const res = await fetch('/api/launch', { method: 'POST' });
+            const data = await res.json();
+            
+            if (data.error) {
+                alert('Launch Error: ' + data.error);
+                playBtn.disabled = false;
+                playBtn.textContent = 'PLAY';
+            } else {
+                // Success, wait for next poll to update UI
+                fetchStatus();
+            }
+        } catch (err) {
+            alert('Failed to launch game.');
+            playBtn.disabled = false;
+            playBtn.textContent = 'PLAY';
+        }
+    });
+
+    // Stop Game
+    stopBtn.addEventListener('click', async () => {
+        stopBtn.disabled = true;
+        stopBtn.textContent = 'Stopping...';
+        
+        try {
+            await fetch('/api/stop', { method: 'POST' });
+            fetchStatus();
+        } catch (err) {
+            alert('Failed to stop game.');
+            stopBtn.disabled = false;
+            stopBtn.textContent = 'STOP GAME';
+        }
+    });
+    
+    // Change Settings Link
+    changeSettingsLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (confirm('Are you sure you want to reset settings? This will require re-configuration.')) {
+            try {
+                await fetch('/api/reset', { method: 'POST' });
+                // Reset local state
+                pendingGamePath = '';
+                selectedPathDisplay.textContent = 'No file selected';
+                selectedPathDisplay.style.color = '#888';
+                serverAddressInput.value = '';
+                // UI will update automatically on next poll
+            } catch (err) {
+                alert('Failed to reset settings.');
+            }
+        }
+    });
+});
