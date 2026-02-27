@@ -134,8 +134,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // File Selection Logic
-    selectGameBtn.addEventListener('click', () => {
-        gamePathFile.click();
+    // We try to require ipcRenderer. If it fails, we fall back to standard input (browser mode)
+    let ipcRenderer;
+    try {
+        ipcRenderer = require('electron').ipcRenderer;
+    } catch (e) {
+        console.warn('Electron IPC not available, falling back to browser input');
+    }
+
+    selectGameBtn.addEventListener('click', async () => {
+        if (ipcRenderer) {
+            // Use Electron Native Dialog
+            try {
+                const path = await ipcRenderer.invoke('select-game-file');
+                if (path) {
+                    pendingGamePath = path;
+                    selectedPathDisplay.textContent = pendingGamePath;
+                    selectedPathDisplay.style.color = '#fff';
+                }
+            } catch (err) {
+                console.error('IPC Dialog failed:', err);
+                gamePathFile.click(); // Fallback
+            }
+        } else {
+            // Browser Fallback
+            gamePathFile.click();
+        }
     });
 
     gamePathFile.addEventListener('change', (e) => {

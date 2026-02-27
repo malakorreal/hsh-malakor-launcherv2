@@ -1,8 +1,24 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 
 // Fix for sandbox: Store user data locally instead of AppData
 app.setPath('userData', path.join(__dirname, 'userData'));
+
+// Handle File Selection via Native Dialog
+ipcMain.handle('select-game-file', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+            { name: 'Executables', extensions: ['exe'] },
+            { name: 'All Files', extensions: ['*'] }
+        ]
+    });
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+        return result.filePaths[0];
+    }
+    return null;
+});
 
 const server = require('./server'); // Import the express server
 
