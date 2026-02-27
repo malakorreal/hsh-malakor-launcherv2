@@ -38,6 +38,79 @@ const killProcess = (processName) => {
     });
 };
 
+const net = require('net');
+const HOSTS_FILE = process.platform === 'win32' 
+    ? 'C:\\Windows\\System32\\drivers\\etc\\hosts' 
+    : '/etc/hosts';
+const TARGET_API_DOMAIN = 'api.homesweethomegame.com';
+
+let proxyServer = null;
+
+// Helper: Modify Hosts File
+const modifyHostsFile = (shouldRedirect) => {
+    try {
+        let hostsContent = fs.readFileSync(HOSTS_FILE, 'utf8');
+        const redirectLine = `127.0.0.1 ${TARGET_API_DOMAIN}`;
+        
+        // Remove existing lines first to avoid duplicates
+        const lines = hostsContent.split('\n').filter(line => !line.includes(TARGET_API_DOMAIN));
+        
+        if (shouldRedirect) {
+            lines.push(redirectLine);
+        }
+        
+        fs.writeFileSync(HOSTS_FILE, lines.join('\n'));
+        console.log(`Hosts file updated: ${shouldRedirect ? 'Redirected' : 'Restored'}`);
+        return true;
+    } catch (err) {
+        console.error('Failed to modify hosts file:', err);
+        return false;
+    }
+};
+
+// Helper: Start TCP Proxy
+const startProxy = (targetHost, targetPort = 443) => {
+    if (proxyServer) return; // Already running
+
+    proxyServer = net.createServer((clientSocket) => {
+        const serverSocket = net.createConnection(targetPort, targetHost, () => {
+            clientSocket.pipe(serverSocket);
+            serverSocket.pipe(clientSocket);
+        });
+
+        serverSocket.on('error', (err) => {
+            console.error('Proxy target connection error:', err);
+            clientSocket.end();
+        });
+
+        clientSocket.on('error', (err) => {
+            console.error('Proxy client connection error:', err);
+            serverSocket.end();
+        });
+    });
+
+    proxyServer.listen(443, '0.0.0.0', () => {
+        console.log(`Proxy listening on port 443, forwarding to ${targetHost}:${targetPort}`);
+    });
+
+    proxyServer.on('error', (err) => {
+        console.error('Proxy server error:', err);
+    });
+};
+
+// Helper: Stop TCP Proxy
+const stopProxy = () => {
+    if (proxyServer) {
+        proxyServer.close();
+        proxyServer = null;
+        console.log('Proxy server stopped');
+    }
+};
+
+// Clean up on exit
+process.on('exit', () => modifyHostsFile(false));
+process.on('SIGINT', () => { modifyHostsFile(false); process.exit(); });
+
 // --- CENTRAL SERVER LOGIC (When running on Cloud) ---
 // Simple in-memory storage for demo. Use database for production.
 let centralConfig = {
@@ -146,8 +219,33 @@ app.post('/api/launch', async (req, res) => {
         }
 
         const args = [];
+        // Note: serverAddress is now used for the Proxy Target, but we still pass it if needed.
+        // If the game supports args, we keep it. If not, it's harmless.
         if (serverAddress) {
             args.push(serverAddress); 
+            
+            // --- MALAKOR PROXY LOGIC ---
+            // 1. Modify Hosts to point official API to localhost
+            const hostsSuccess = modifyHostsFile(true);
+            
+            if (hostsSuccess) {
+                // 2. Start Proxy forwarding to our custom serverAddress
+                // We assume serverAddress is a domain or IP.
+                // If it's a full URL (http://...), we need to parse it.
+                let targetHost = serverAddress;
+                try {
+                    // Try to handle if user entered http/https
+                    if (targetHost.startsWith('http')) {
+                        const url = new URL(targetHost);
+                        targetHost = url.hostname;
+                    }
+                } catch (e) { /* ignore */ }
+                
+                startProxy(targetHost, 443);
+            } else {
+                console.warn('Could not modify hosts file. Run as Administrator?');
+                // We proceed anyway, maybe the user did it manually.
+            }
         }
 
         const cwd = path.dirname(gamePath);
@@ -161,7 +259,14 @@ app.post('/api/launch', async (req, res) => {
 
         child.on('error', (err) => {
             console.error('Failed to start game:', err);
+            modifyHostsFile(false); // Revert if launch fails
+            stopProxy();
         });
+        
+        // Restore hosts/proxy when game exits?
+        // Since we detached, we can't easily know when it exits unless we kept the reference.
+        // Ideally we should monitor the process.
+        // For now, we keep the proxy running until the user clicks "Stop" or closes the launcher.
 
         child.unref(); 
 
@@ -181,6 +286,10 @@ app.post('/api/stop', async (req, res) => {
         
         const exeName = path.basename(gamePath);
         await killProcess(exeName);
+        
+        // Cleanup Proxy
+        modifyHostsFile(false);
+        stopProxy();
         
         res.json({ success: true, message: 'Stop command issued' });
     } catch (err) {

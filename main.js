@@ -1,8 +1,32 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const { exec } = require('child_process');
 
 // Fix for sandbox: Store user data locally instead of AppData
 app.setPath('userData', path.join(__dirname, 'userData'));
+
+// Check for Administrator Privileges (Windows)
+if (process.platform === 'win32') {
+    exec('net session', function(err, stdout, stderr) {
+        if (err || (stderr && stderr.length > 0)) {
+            // Not Admin
+            console.log("Not running as admin, relaunching...");
+            const { spawn } = require('child_process');
+            
+            // Relaunch as Admin using PowerShell
+            const command = `Start-Process "${process.execPath}" -ArgumentList "${process.argv.slice(1).join(' ')}" -Verb RunAs`;
+            spawn('powershell', ['-Command', command], {
+                detached: true,
+                stdio: 'ignore'
+            }).unref();
+            
+            app.quit();
+        } else {
+            // Is Admin, continue normally
+            console.log("Running as admin.");
+        }
+    });
+}
 
 // Handle File Selection via Native Dialog
 ipcMain.handle('select-game-file', async () => {
