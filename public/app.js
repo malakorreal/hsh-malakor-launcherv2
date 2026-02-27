@@ -50,6 +50,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 serverAddressInput.value = data.serverAddress;
             }
 
+            // Update displayed path if available and not manually changed yet
+            if (data.gamePath && !pendingGamePath && selectedPathDisplay.textContent === 'No file selected') {
+                selectedPathDisplay.textContent = data.gamePath;
+                selectedPathDisplay.style.color = '#fff';
+            }
+
             updateUI();
         } catch (err) {
             console.error('Failed to fetch status:', err);
@@ -211,6 +217,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Launch Error: ' + data.error);
                 playBtn.disabled = false;
                 playBtn.textContent = 'PLAY';
+                
+                // If path not found, offer reset
+                if (data.error.includes('not found')) {
+                    if (confirm('Game executable not found. Do you want to reset settings and select the file again?')) {
+                        await fetch('/api/reset', { method: 'POST' });
+                        location.reload();
+                    }
+                }
             } else {
                 // Success, wait for next poll to update UI
                 fetchStatus();

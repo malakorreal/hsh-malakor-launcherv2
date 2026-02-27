@@ -135,7 +135,7 @@ app.post('/api/launch', async (req, res) => {
 
         // Verify file exists
         if (!fs.existsSync(gamePath)) {
-            return res.status(400).json({ error: 'Game executable not found at path' });
+            return res.status(400).json({ error: `Game executable not found at path: ${gamePath}` });
         }
 
         // Check if already running
