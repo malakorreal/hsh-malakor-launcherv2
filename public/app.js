@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedPathDisplay = document.getElementById('selected-path-display');
     
     const serverAddressInput = document.getElementById('serverAddress');
+    const centralServerUrlInput = document.getElementById('centralServerUrl');
     const saveConfigBtn = document.getElementById('save-config-btn');
     
     const installBtn = document.getElementById('install-btn');
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentStatus = {
         gamePath: '',
         serverAddress: '',
+        centralServerUrl: '',
         isInstalled: false,
         isRunning: false
     };
@@ -30,6 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Poll status every 2 seconds
     setInterval(fetchStatus, 2000);
+    setInterval(syncWithCentralServer, 10000); // Sync every 10 seconds
+
     fetchStatus();
 
     async function fetchStatus() {
@@ -37,10 +41,53 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/status');
             const data = await res.json();
             currentStatus = data;
+            
+            // Auto-fill inputs if empty
+            if (data.centralServerUrl && !centralServerUrlInput.value) {
+                centralServerUrlInput.value = data.centralServerUrl;
+            }
+            if (data.serverAddress && !serverAddressInput.value) {
+                serverAddressInput.value = data.serverAddress;
+            }
+
             updateUI();
         } catch (err) {
             console.error('Failed to fetch status:', err);
             statusText.textContent = 'Connection Error';
+        }
+    }
+
+    async function syncWithCentralServer() {
+        if (!currentStatus.centralServerUrl) return;
+
+        try {
+            // 1. Fetch Config (Domain Server)
+            const configRes = await fetch(`${currentStatus.centralServerUrl}/api/central/config`);
+            if (configRes.ok) {
+                const config = await configRes.json();
+                if (config.targetDomain && config.targetDomain !== currentStatus.serverAddress) {
+                    console.log('Syncing new target domain:', config.targetDomain);
+                    // Update local config
+                    await fetch('/api/configure', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ serverAddress: config.targetDomain })
+                    });
+                }
+            }
+
+            // 2. Send Heartbeat
+            await fetch(`${currentStatus.centralServerUrl}/api/central/heartbeat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    clientId: 'user-' + Math.floor(Math.random() * 10000), // Simple ID
+                    status: currentStatus.isRunning ? 'playing' : 'idle' 
+                })
+            });
+
+        } catch (err) {
+            console.error('Failed to sync with central server:', err);
         }
     }
 
@@ -103,8 +150,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Save Configuration
     saveConfigBtn.addEventListener('click', async () => {
-        const gamePath = pendingGamePath;
+        const gamePath = pendingGamePath || currentStatus.gamePath; // Use existing if not changed
         const serverAddress = serverAddressInput.value.trim();
+        const centralServerUrl = centralServerUrlInput.value.trim();
         
         if (!gamePath) {
             alert('Please select the game executable (HSHO.exe).');
@@ -115,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await fetch('/api/configure', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gamePath, serverAddress })
+                body: JSON.stringify({ gamePath, serverAddress, centralServerUrl })
             });
             fetchStatus(); // Refresh
         } catch (err) {

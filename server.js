@@ -14,12 +14,47 @@ app.use(express.static('public'));
 
 let gameProcess = null;
 
+// --- CENTRAL SERVER LOGIC (When running on Cloud) ---
+// Simple in-memory storage for demo. Use database for production.
+let centralConfig = {
+    targetDomain: "game.example.com", // Default
+    motd: "Welcome to Malakor Launcher"
+};
+
+let onlineClients = {}; // Store client status: { clientId: { status, lastSeen } }
+
+// API to get Global Config (Called by Launcher)
+app.get('/api/central/config', (req, res) => {
+    res.json(centralConfig);
+});
+
+// API to update Global Config (Called by Admin - unsecured for demo)
+app.post('/api/central/config', (req, res) => {
+    const { targetDomain, motd } = req.body;
+    if (targetDomain) centralConfig.targetDomain = targetDomain;
+    if (motd) centralConfig.motd = motd;
+    res.json({ success: true, config: centralConfig });
+});
+
+// API to report status (Called by Launcher)
+app.post('/api/central/heartbeat', (req, res) => {
+    const { clientId, status } = req.body;
+    onlineClients[clientId] = {
+        status,
+        lastSeen: new Date()
+    };
+    res.json({ success: true });
+});
+
+// --- LOCAL LAUNCHER LOGIC (When running on Desktop) ---
+
 // Get current status
 app.get('/api/status', async (req, res) => {
     try {
         const gamePath = await db.getSetting('game_path');
         const serverAddress = await db.getSetting('server_address');
         const isInstalled = await db.getSetting('is_installed');
+        const centralServerUrl = await db.getSetting('central_server_url');
         
         // Check if process is running (simple check by variable, robust check would be tasklist)
         // For this demo, we use the variable. If the server restarts, this resets.
@@ -28,6 +63,7 @@ app.get('/api/status', async (req, res) => {
         res.json({
             gamePath,
             serverAddress,
+            centralServerUrl,
             isInstalled: isInstalled === 'true',
             isRunning
         });
