@@ -10,17 +10,17 @@ if (process.platform === 'win32') {
     exec('net session', function(err, stdout, stderr) {
         if (err || (stderr && stderr.length > 0)) {
             // Not Admin
-            console.log("Not running as admin, relaunching...");
-            const { spawn } = require('child_process');
-            
-            // Relaunch as Admin using PowerShell
-            const command = `Start-Process "${process.execPath}" -ArgumentList "${process.argv.slice(1).join(' ')}" -Verb RunAs`;
-            spawn('powershell', ['-Command', command], {
-                detached: true,
-                stdio: 'ignore'
-            }).unref();
-            
-            app.quit();
+            // Show error message and quit. Do not try to relaunch automatically in dev as it's flaky.
+            // But we must wait for app.whenReady to show dialog.
+            app.whenReady().then(() => {
+                dialog.showMessageBoxSync({
+                    type: 'error',
+                    title: 'Administrator Privileges Required',
+                    message: 'This application requires Administrator privileges to run.\n\nPlease restart the application (or your terminal) as Administrator.',
+                    buttons: ['OK']
+                });
+                app.quit();
+            });
         } else {
             // Is Admin, continue normally
             console.log("Running as admin.");
