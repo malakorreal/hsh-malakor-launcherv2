@@ -12,7 +12,31 @@ const PORT = 3000;
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-let gameProcess = null;
+// Helper: Check if process is running (Windows)
+const isProcessRunning = (processName) => {
+    return new Promise((resolve, reject) => {
+        if (!processName) return resolve(false);
+        const cmd = `tasklist`;
+        exec(cmd, (err, stdout, stderr) => {
+            if (err) return resolve(false); // Tasklist failed or not found
+            // Simple check: does the stdout contain the process name?
+            resolve(stdout.toLowerCase().includes(processName.toLowerCase()));
+        });
+    });
+};
+
+// Helper: Kill process (Windows)
+const killProcess = (processName) => {
+    return new Promise((resolve, reject) => {
+        if (!processName) return resolve();
+        // /F = force, /IM = image name
+        const cmd = `taskkill /F /IM "${processName}"`;
+        exec(cmd, (err, stdout, stderr) => {
+            // Ignore error if process not found (already dead)
+            resolve();
+        });
+    });
+};
 
 // --- CENTRAL SERVER LOGIC (When running on Cloud) ---
 // Simple in-memory storage for demo. Use database for production.
@@ -56,9 +80,11 @@ app.get('/api/status', async (req, res) => {
         const isInstalled = await db.getSetting('is_installed');
         const centralServerUrl = await db.getSetting('central_server_url');
         
-        // Check if process is running (simple check by variable, robust check would be tasklist)
-        // For this demo, we use the variable. If the server restarts, this resets.
-        const isRunning = !!gameProcess;
+        let isRunning = false;
+        if (gamePath) {
+            const exeName = path.basename(gamePath);
+            isRunning = await isProcessRunning(exeName);
+        }
 
         res.json({
             gamePath,
@@ -112,40 +138,34 @@ app.post('/api/launch', async (req, res) => {
             return res.status(400).json({ error: 'Game executable not found at path' });
         }
 
+        // Check if already running
+        const exeName = path.basename(gamePath);
+        const isRunning = await isProcessRunning(exeName);
+        if (isRunning) {
+            return res.json({ success: true, message: 'Game is already running' });
+        }
+
         const args = [];
         if (serverAddress) {
-            // Assuming the game accepts a server address as an argument
-            // Adjust this based on actual game requirements. 
-            // For now, we append it as a standard argument.
             args.push(serverAddress); 
         }
 
         const cwd = path.dirname(gamePath);
-
         console.log(`Launching ${gamePath} with args: ${args} in ${cwd}`);
 
-        gameProcess = spawn(gamePath, args, {
+        const child = spawn(gamePath, args, {
             cwd: cwd,
             detached: true,
             stdio: 'ignore' 
         });
 
-        gameProcess.on('error', (err) => {
+        child.on('error', (err) => {
             console.error('Failed to start game:', err);
-            gameProcess = null;
         });
 
-        gameProcess.on('exit', (code) => {
-            console.log(`Game exited with code ${code}`);
-            gameProcess = null;
-        });
+        child.unref(); 
 
-        gameProcess.unref(); // Allow the server to keep running even if child exits? Or rather, allow child to run independently.
-        // But we want to track it for "Stop". So maybe don't unref if we want to kill it via variable.
-        // Actually, if we want to kill it, we should keep the reference.
-        // "detached: true" allows it to run even if parent dies, but we can still kill it if we have the PID.
-
-        res.json({ success: true, pid: gameProcess.pid });
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -154,20 +174,15 @@ app.post('/api/launch', async (req, res) => {
 // Stop Game
 app.post('/api/stop', async (req, res) => {
     try {
-        if (gameProcess) {
-            gameProcess.kill();
-            gameProcess = null;
-            res.json({ success: true, message: 'Game stopped via process handle' });
-        } else {
-            // Fallback: Try to kill by name "HSHO.exe"
-            exec('taskkill /IM HSHO.exe /F', (err, stdout, stderr) => {
-                if (err) {
-                    // It might not be running
-                    return res.json({ success: false, message: 'Process not found or could not be killed' });
-                }
-                res.json({ success: true, message: 'Game stopped via taskkill' });
-            });
+        const gamePath = await db.getSetting('game_path');
+        if (!gamePath) {
+             return res.status(400).json({ error: 'Game path not configured' });
         }
+        
+        const exeName = path.basename(gamePath);
+        await killProcess(exeName);
+        
+        res.json({ success: true, message: 'Stop command issued' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

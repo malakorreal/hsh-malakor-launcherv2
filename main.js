@@ -24,10 +24,15 @@ function createWindow() {
     // Alternatively, we could serve files directly via file:// protocol but since we have API logic in express,
     // keeping the server running in the background is easier for logic reuse.
     
-    // Let's give the server a moment to start, though require('./server') runs it immediately.
-    setTimeout(() => {
-        win.loadURL('http://localhost:3000');
-    }, 1000);
+    // Retry loading if connection fails
+    const loadApp = () => {
+        win.loadURL('http://localhost:3000').catch((err) => {
+            console.log('Server not ready, retrying in 1s...');
+            setTimeout(loadApp, 1000);
+        });
+    };
+    
+    setTimeout(loadApp, 1000);
 
     // Open DevTools for debugging (optional)
     // win.webContents.openDevTools();
